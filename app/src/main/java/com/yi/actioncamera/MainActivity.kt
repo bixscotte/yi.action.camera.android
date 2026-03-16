@@ -80,6 +80,9 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+private const val defaultPassword = "1234567890"
+private const val defaultIp = "192.168.42.1"
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen() {
@@ -88,10 +91,10 @@ fun MainScreen() {
     
     var showSettings by remember { mutableStateOf(false) }
     var cameraIp by remember { 
-        mutableStateOf(prefs.getString("camera_ip", "192.168.42.1") ?: "192.168.42.1") 
+        mutableStateOf(prefs.getString("camera_ip", defaultIp) ?: defaultIp)
     }
     var cameraPassword by remember {
-        mutableStateOf(prefs.getString("camera_password", "1234567890") ?: "1234567890")
+        mutableStateOf(prefs.getString("camera_password", defaultPassword) ?: defaultPassword)
     }
     var status by remember { mutableStateOf(ConnectionStatus.IDLE) }
     var statusMessage by remember { mutableStateOf("Prêt pour la connexion") }
@@ -308,8 +311,8 @@ fun SettingsDialog(
     onSave: (String, String) -> Unit,
     onDismiss: () -> Unit
 ) {
-    val defaultIp = "192.168.42.1"
-    val defaultPassword = "1234567890"
+    val defaultIp = defaultIp
+    val defaultPassword = defaultPassword
     var tempIp by remember { mutableStateOf(currentIp) }
     var tempPassword by remember { mutableStateOf(currentPassword) }
     var passwordVisible by remember { mutableStateOf(false) }
