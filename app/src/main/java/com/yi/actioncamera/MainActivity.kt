@@ -91,7 +91,7 @@ fun MainScreen() {
         mutableStateOf(prefs.getString("camera_ip", "192.168.42.1") ?: "192.168.42.1") 
     }
     var cameraPassword by remember {
-        mutableStateOf(prefs.getString("camera_password", "12345678") ?: "12345678")
+        mutableStateOf(prefs.getString("camera_password", "1234567890") ?: "1234567890")
     }
     var status by remember { mutableStateOf(ConnectionStatus.IDLE) }
     var statusMessage by remember { mutableStateOf("Prêt pour la connexion") }
@@ -309,7 +309,7 @@ fun SettingsDialog(
     onDismiss: () -> Unit
 ) {
     val defaultIp = "192.168.42.1"
-    val defaultPassword = "12345678"
+    val defaultPassword = "1234567890"
     var tempIp by remember { mutableStateOf(currentIp) }
     var tempPassword by remember { mutableStateOf(currentPassword) }
     var passwordVisible by remember { mutableStateOf(false) }
