@@ -18,14 +18,21 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -46,9 +53,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.core.content.edit
+
+enum class ConnectionStatus {
+    IDLE, SEARCHING, CONNECTED, ERROR
+}
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -79,22 +93,36 @@ fun MainScreen() {
     var cameraPassword by remember {
         mutableStateOf(prefs.getString("camera_password", "12345678") ?: "12345678")
     }
-    var connectionStatus by remember { mutableStateOf("Prêt pour la connexion") }
+    var status by remember { mutableStateOf(ConnectionStatus.IDLE) }
+    var statusMessage by remember { mutableStateOf("Prêt pour la connexion") }
 
     val permissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        if (isGranted) {
-            connectToCameraWifi(context, cameraPassword) { status -> connectionStatus = status }
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val fineGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] ?: false
+        val coarseGranted = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] ?: false
+        val nearbyGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissions[Manifest.permission.NEARBY_WIFI_DEVICES] ?: false
         } else {
-            Toast.makeText(context, "Permission de localisation nécessaire pour le Wi-Fi", Toast.LENGTH_SHORT).show()
+            false
+        }
+        
+        val canConnect = nearbyGranted || fineGranted || coarseGranted
+        
+        if (canConnect) {
+            connectToCameraWifi(context, cameraPassword) { newStatus, msg -> 
+                status = newStatus
+                statusMessage = msg 
+            }
+        } else {
+            Toast.makeText(context, "Permissions nécessaires pour le Wi-Fi", Toast.LENGTH_SHORT).show()
         }
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("YI Action Camera") },
+                title = { Text("YIPilot") },
                 actions = {
                     IconButton(onClick = { showSettings = true }) {
                         Icon(
@@ -110,36 +138,95 @@ fun MainScreen() {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(16.dp),
+                .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Text(
-                text = "IP : $cameraIp",
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-            
-            Text(
-                text = connectionStatus,
-                style = MaterialTheme.typography.headlineSmall,
-                modifier = Modifier.padding(bottom = 32.dp)
-            )
+            // Zone d'affichage du statut
+            when (status) {
+                ConnectionStatus.SEARCHING -> {
+                    CircularProgressIndicator(modifier = Modifier.padding(bottom = 16.dp))
+                    Text(
+                        text = statusMessage,
+                        style = MaterialTheme.typography.bodyLarge,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(bottom = 32.dp)
+                    )
+                }
+                ConnectionStatus.ERROR -> {
+                    Surface(
+                        color = MaterialTheme.colorScheme.errorContainer,
+                        shape = MaterialTheme.shapes.medium,
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Warning,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            Text(
+                                text = statusMessage,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        }
+                    }
+                }
+                else -> {
+                    Text(
+                        text = statusMessage,
+                        style = MaterialTheme.typography.headlineSmall,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(bottom = 32.dp),
+                        color = if (status == ConnectionStatus.CONNECTED) Color(0xFF4CAF50) else Color.Unspecified
+                    )
+                }
+            }
+
+            if (status != ConnectionStatus.ERROR) {
+                Text(
+                    text = "IP : $cameraIp",
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.padding(bottom = 32.dp)
+                )
+            }
             
             Button(
-                onClick = { 
-                    if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-                        connectToCameraWifi(context, cameraPassword) { status -> connectionStatus = status }
+                onClick = {
+                    val permissionsNeeded = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        arrayOf(Manifest.permission.NEARBY_WIFI_DEVICES)
                     } else {
-                        permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                        arrayOf(
+                            Manifest.permission.ACCESS_FINE_LOCATION,
+                            Manifest.permission.ACCESS_COARSE_LOCATION
+                        )
+                    }
+
+                    val allGranted = permissionsNeeded.all {
+                        ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
+                    }
+
+                    if (allGranted) {
+                        connectToCameraWifi(context, cameraPassword) { newStatus, msg -> 
+                            status = newStatus
+                            statusMessage = msg 
+                        }
+                    } else {
+                        permissionLauncher.launch(permissionsNeeded)
                     }
                 },
+                modifier = Modifier.fillMaxWidth(0.8f),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Color(0xFFE53935),
                     contentColor = Color.White
                 )
             ) {
-                Text(text = "Se connecter au Wi-Fi")
+                Text(text = if (status == ConnectionStatus.ERROR) "Réessayer la connexion" else "Se connecter au Wi-Fi")
             }
         }
 
@@ -150,10 +237,10 @@ fun MainScreen() {
                 onSave = { newIp, newPassword ->
                     cameraIp = newIp
                     cameraPassword = newPassword
-                    prefs.edit()
-                        .putString("camera_ip", newIp)
-                        .putString("camera_password", newPassword)
-                        .apply()
+                    prefs.edit {
+                        putString("camera_ip", newIp)
+                        putString("camera_password", newPassword)
+                    }
                     showSettings = false
                 },
                 onDismiss = { showSettings = false }
@@ -162,7 +249,7 @@ fun MainScreen() {
     }
 }
 
-fun connectToCameraWifi(context: Context, password: String, onStatusChange: (String) -> Unit) {
+fun connectToCameraWifi(context: Context, password: String, onStatusUpdate: (ConnectionStatus, String) -> Unit) {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
         val specifier = WifiNetworkSpecifier.Builder()
             .setSsidPattern(PatternMatcher("YDXJ_.*", PatternMatcher.PATTERN_SIMPLE_GLOB))
@@ -177,28 +264,39 @@ fun connectToCameraWifi(context: Context, password: String, onStatusChange: (Str
 
         val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         
-        onStatusChange("Recherche de la caméra...")
+        onStatusUpdate(ConnectionStatus.SEARCHING, "Ouverture de la sélection Wi-Fi...")
         
-        connectivityManager.requestNetwork(request, object : ConnectivityManager.NetworkCallback() {
-            override fun onAvailable(network: Network) {
-                super.onAvailable(network)
-                connectivityManager.bindProcessToNetwork(network)
-                onStatusChange("Connecté à la caméra !")
-            }
+        try {
+            connectivityManager.requestNetwork(
+                request, 
+                object : ConnectivityManager.NetworkCallback() {
+                    override fun onAvailable(network: Network) {
+                        super.onAvailable(network)
+                        connectivityManager.bindProcessToNetwork(network)
+                        onStatusUpdate(ConnectionStatus.CONNECTED, "Connecté à la caméra !")
+                    }
 
-            override fun onUnavailable() {
-                super.onUnavailable()
-                onStatusChange("Caméra introuvable ou mot de passe incorrect")
-            }
+                    override fun onUnavailable() {
+                        super.onUnavailable()
+                        onStatusUpdate(
+                            ConnectionStatus.ERROR, 
+                            "Caméra introuvable. Vérifiez que le Wi-Fi de la caméra est activé (bouton Wi-Fi sur le côté) et que vous êtes à proximité."
+                        )
+                    }
 
-            override fun onLost(network: Network) {
-                super.onLost(network)
-                connectivityManager.bindProcessToNetwork(null)
-                onStatusChange("Connexion perdue")
-            }
-        })
+                    override fun onLost(network: Network) {
+                        super.onLost(network)
+                        connectivityManager.bindProcessToNetwork(null)
+                        onStatusUpdate(ConnectionStatus.IDLE, "Connexion perdue")
+                    }
+                },
+                30000 // Timeout de 30 secondes
+            )
+        } catch (e: SecurityException) {
+            onStatusUpdate(ConnectionStatus.ERROR, "Erreur de sécurité : permissions manquantes.")
+        }
     } else {
-        onStatusChange("Veuillez vous connecter manuellement (Android < 10)")
+        onStatusUpdate(ConnectionStatus.IDLE, "Veuillez vous connecter manuellement (Android < 10)")
         Toast.makeText(context, "Version d'Android trop ancienne pour la connexion auto", Toast.LENGTH_LONG).show()
     }
 }
@@ -214,6 +312,7 @@ fun SettingsDialog(
     val defaultPassword = "12345678"
     var tempIp by remember { mutableStateOf(currentIp) }
     var tempPassword by remember { mutableStateOf(currentPassword) }
+    var passwordVisible by remember { mutableStateOf(false) }
     
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -221,7 +320,27 @@ fun SettingsDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Paramètres réseau", style = MaterialTheme.typography.labelLarge)
-                
+
+                OutlinedTextField(
+                    value = tempPassword,
+                    onValueChange = { tempPassword = it },
+                    label = { Text("Mot de passe Wi-Fi") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    trailingIcon = {
+                        val image = if (passwordVisible)
+                            Icons.Filled.Visibility
+                        else Icons.Filled.VisibilityOff
+
+                        val description = if (passwordVisible) "Cacher le mot de passe" else "Afficher le mot de passe"
+
+                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                            Icon(imageVector = image, contentDescription = description)
+                        }
+                    }
+                )
+
                 OutlinedTextField(
                     value = tempIp,
                     onValueChange = { tempIp = it },
@@ -229,16 +348,7 @@ fun SettingsDialog(
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )
-                
-                OutlinedTextField(
-                    value = tempPassword,
-                    onValueChange = { tempPassword = it },
-                    label = { Text("Mot de passe Wi-Fi") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    visualTransformation = PasswordVisualTransformation()
-                )
-                
+
                 TextButton(
                     onClick = { 
                         tempIp = defaultIp
