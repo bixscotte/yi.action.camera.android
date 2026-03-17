@@ -1,6 +1,5 @@
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.jetbrains.kotlin.android) // Ajout du plugin manquant
     alias(libs.plugins.compose.compiler)
 }
 
