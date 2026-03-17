@@ -5,27 +5,39 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.InputStream
 import java.io.OutputStream
+import java.net.InetSocketAddress
 import java.net.Socket
 
 private const val CAM_PORT = 7878
 
 /**
+ * Interface pour permettre le mocking de la connexion Socket dans les tests
+ */
+interface CameraSocketProvider {
+    fun createSocket(): Socket
+}
+
+object DefaultCameraSocketProvider : CameraSocketProvider {
+    override fun createSocket(): Socket = Socket()
+}
+
+/**
  * Prend une photo (msg_id: 769)
  */
-suspend fun takePhoto(cameraIp: String): Result<String> =
-    executeCameraCommand(cameraIp, 769, "Photo déclenchée !")
+suspend fun takePhoto(cameraIp: String, socketProvider: CameraSocketProvider = DefaultCameraSocketProvider): Result<String> =
+    executeCameraCommand(cameraIp, 769, "Photo déclenchée !", socketProvider)
 
 /**
  * Démarre l'enregistrement vidéo (msg_id: 513)
  */
-suspend fun startVideo(cameraIp: String): Result<String> =
-    executeCameraCommand(cameraIp, 513, "Enregistrement vidéo démarré !")
+suspend fun startVideo(cameraIp: String, socketProvider: CameraSocketProvider = DefaultCameraSocketProvider): Result<String> =
+    executeCameraCommand(cameraIp, 513, "Enregistrement vidéo démarré !", socketProvider)
 
 /**
  * Arrête l'enregistrement vidéo (msg_id: 514)
  */
-suspend fun stopVideo(cameraIp: String): Result<String> =
-    executeCameraCommand(cameraIp, 514, "Enregistrement vidéo arrêté !")
+suspend fun stopVideo(cameraIp: String, socketProvider: CameraSocketProvider = DefaultCameraSocketProvider): Result<String> =
+    executeCameraCommand(cameraIp, 514, "Enregistrement vidéo arrêté !", socketProvider)
 
 /**
  * Fonction générique pour exécuter une commande après authentification
@@ -33,11 +45,13 @@ suspend fun stopVideo(cameraIp: String): Result<String> =
 private suspend fun executeCameraCommand(
     cameraIp: String,
     msgId: Int,
-    successMessage: String
+    successMessage: String,
+    socketProvider: CameraSocketProvider
 ): Result<String> = withContext(Dispatchers.IO) {
     var socket: Socket? = null
     try {
-        socket = Socket(cameraIp, CAM_PORT)
+        socket = socketProvider.createSocket()
+        socket.connect(InetSocketAddress(cameraIp, CAM_PORT), 5000)
         socket.soTimeout = 5000
         val output = socket.getOutputStream()
         val input = socket.getInputStream()
@@ -67,14 +81,14 @@ private suspend fun executeCameraCommand(
 }
 
 /**
- * Logique calquée sur votre code Python pour récupérer le token de session.
+ * Logique pour récupérer le token de session.
  */
 private fun getToken(output: OutputStream, input: InputStream): Int? {
     val authCmd = "{\"msg_id\":257,\"token\":0}"
     output.write(authCmd.toByteArray())
     output.flush()
 
-    // On essaie de lire la réponse (jusqu'à 2 tentatives comme dans le script Python)
+    // On essaie de lire la réponse (jusqu'à 2 tentatives)
     repeat(2) {
         val data = readResponse(input)
         if (data.contains("rval")) {
