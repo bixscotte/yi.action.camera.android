@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Corps de la caméra (Vert citron) -->
+    <path
+        android:fillColor="#CDDC39"
+        android:pathData="M25,35h50c2.76,0 5,2.24 5,5v30c0,2.76 -2.24,5 -5,5h-50c-2.76,0 -5,-2.24 -5,-5v-30c0,-2.76 2.24,-5 5,-5z" />
+
+    <!-- Côté de la caméra (Cyan) -->
+    <path
+        android:fillColor="#00ACC1"
+        android:pathData="M75,35h5c1.1,0 2,0.9 2,2v32c0,1.1 -0.9,2 -2,2h-5V35z" />
+
+    <!-- Bouton Power (Cyan) -->
+    <path
+        android:fillColor="#00ACC1"
+        android:pathData="M35,55m-10,0a10,10 0,1 1,20,0a10,10 0,1 1,-20,0" />
+
+    <!-- Symbole Power sur le bouton -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:pathData="M35,51v4 M32,52.5a4,4 0,1 0,6,0" />
+
+    <!-- Objectif (Noir/Gris foncé) -->
+    <path
+        android:fillColor="#212121"
+        android:pathData="M60,55m-16,0a16,16 0,1 1,32,0a16,16 0,1 1,-32,0" />
+
+    <!-- Détail de l'objectif (Cercle intérieur) -->
+    <path
+        android:fillColor="#37474F"
+        android:pathData="M60,55m-10,0a10,10 0,1 1,20,0a10,10 0,1 1,-20,0" />
+
+    <!-- Reflet sur l'objectif -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.2"
+        android:pathData="M55,50m-3,0a3,3 0,1 1,6,0a3,3 0,1 1,-6,0" />
+
+</vector>
