@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.compose.compiler)
@@ -81,4 +83,33 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
+}
+
+// Tâche pour copier l'APK vers Google Drive
+tasks.register<Copy>("copyApkToDrive") {
+    dependsOn("assembleDebug")
+    
+    // Lecture sécurisée du chemin depuis local.properties
+    val localProperties = Properties()
+    val localPropertiesFile = rootProject.file("local.properties")
+    if (localPropertiesFile.exists()) {
+        localProperties.load(localPropertiesFile.inputStream())
+    }
+    
+    val drivePath = localProperties.getProperty("google.drive.path")
+    
+    if (drivePath != null) {
+        from(layout.buildDirectory.dir("outputs/apk/debug"))
+        include("app-debug.apk")
+        into(drivePath)
+        rename { "YiPilot-v${android.defaultConfig.versionName}.apk" }
+        
+        doLast {
+            println("APK copié avec succès vers: $drivePath")
+        }
+    } else {
+        doLast {
+            println("ERREUR: google.drive.path n'est pas défini dans local.properties")
+        }
+    }
 }
