@@ -40,6 +40,49 @@ suspend fun stopVideo(cameraIp: String, socketProvider: CameraSocketProvider = D
     executeCameraCommand(cameraIp, 514, "Enregistrement vidéo arrêté !", socketProvider)
 
 /**
+ * Récupère tous les paramètres de la caméra (msg_id: 3)
+ */
+suspend fun getCameraOptions(cameraIp: String, socketProvider: CameraSocketProvider = DefaultCameraSocketProvider): Result<Map<String, String>> = withContext(Dispatchers.IO) {
+    var socket: Socket? = null
+    try {
+        socket = socketProvider.createSocket()
+        socket.connect(InetSocketAddress(cameraIp, CAM_PORT), 5000)
+        socket.soTimeout = 5000
+        val output = socket.getOutputStream()
+        val input = socket.getInputStream()
+
+        // 1. Authentification
+        val token = getToken(output, input)
+            ?: return@withContext Result.failure(Exception("Échec de l'authentification"))
+
+        // 2. Commande pour récupérer les options (msg_id: 3)
+        val command = "{\"msg_id\":3,\"token\":$token}"
+        output.write(command.toByteArray())
+        output.flush()
+
+        // Lecture de la réponse
+        val data = readResponse(input)
+        val json = JSONObject(data)
+        
+        val optionsMap = mutableMapOf<String, String>()
+        if (json.has("param")) {
+            val params = json.getJSONArray("param")
+            for (i in 0 until params.length()) {
+                val obj = params.getJSONObject(i)
+                val key = obj.keys().next()
+                optionsMap[key] = obj.getString(key)
+            }
+        }
+        
+        Result.success(optionsMap)
+    } catch (e: Exception) {
+        Result.failure(e)
+    } finally {
+        socket?.close()
+    }
+}
+
+/**
  * Fonction générique pour exécuter une commande après authentification
  */
 private suspend fun executeCameraCommand(
@@ -111,7 +154,7 @@ private fun getToken(output: OutputStream, input: InputStream): Int? {
  * Lit les données brutes du socket et les convertit en String.
  */
 private fun readResponse(input: InputStream): String {
-    val buffer = ByteArray(1024)
+    val buffer = ByteArray(4096) // Buffer plus grand pour les options
     return try {
         val bytesRead = input.read(buffer)
         if (bytesRead != -1) {

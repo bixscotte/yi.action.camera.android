@@ -22,6 +22,9 @@
     <string name="btn_take_photo">Take Photo</string>
     <string name="btn_start_video">Start Video</string>
     <string name="btn_stop_video">Stop Video</string>
+    <string name="btn_camera_settings">Camera Settings</string>
+    <string name="camera_settings_dialog_title">Camera Parameters</string>
+    <string name="btn_close">Close</string>
 
     <!-- Settings -->
     <string name="settings_title">Settings</string>

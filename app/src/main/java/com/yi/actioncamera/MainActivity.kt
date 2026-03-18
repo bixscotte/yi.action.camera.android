@@ -10,7 +10,10 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -18,8 +21,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Stop
@@ -32,6 +40,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -41,6 +50,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -49,28 +59,44 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
+import com.yi.actioncamera.ui.theme.AppTheme
+import com.yi.actioncamera.ui.theme.YiPilotTheme
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            MaterialTheme {
+            val context = LocalContext.current
+            val prefs = remember { context.getSharedPreferences("camera_prefs", MODE_PRIVATE) }
+            var currentTheme by remember { 
+                mutableStateOf(AppTheme.valueOf(prefs.getString("app_theme", AppTheme.WHITE.name) ?: AppTheme.WHITE.name)) 
+            }
+
+            YiPilotTheme(appTheme = currentTheme) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    MainScreen()
+                    MainScreen(
+                        currentTheme = currentTheme,
+                        onThemeChange = { newTheme -> 
+                            currentTheme = newTheme
+                            prefs.edit { putString("app_theme", newTheme.name) }
+                        }
+                    )
                 }
             }
         }
@@ -79,7 +105,10 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen() {
+fun MainScreen(
+    currentTheme: AppTheme,
+    onThemeChange: (AppTheme) -> Unit
+) {
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("camera_prefs", Context.MODE_PRIVATE) }
     
@@ -91,7 +120,8 @@ fun MainScreen() {
         mutableStateOf(prefs.getString("camera_password", DEFAULT_PASSWORD) ?: DEFAULT_PASSWORD)
     }
     var status by remember { mutableStateOf(ConnectionStatus.IDLE) }
-    var statusMessage by remember { mutableStateOf(context.getString(R.string.status_ready)) }
+    val readyStatus = stringResource(R.string.status_ready)
+    var statusMessage by remember(readyStatus) { mutableStateOf(readyStatus) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -120,18 +150,23 @@ fun MainScreen() {
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.app_name)) },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface
+                ),
                 actions = {
                     if (status != ConnectionStatus.CONNECTED) {
                         IconButton(onClick = { showSettings = true }) {
                             Icon(
                                 imageVector = Icons.Default.Settings,
-                                contentDescription = stringResource(R.string.settings_title)
+                                contentDescription = stringResource(R.string.settings_title),
+                                tint = MaterialTheme.colorScheme.onSurface
                             )
                         }
                     } else {
                         TextButton(onClick = { 
                             status = ConnectionStatus.IDLE 
-                            statusMessage = context.getString(R.string.status_ready)
+                            statusMessage = readyStatus
                         }) {
                             Text(stringResource(R.string.btn_disconnect), color = MaterialTheme.colorScheme.error)
                         }
@@ -181,6 +216,8 @@ fun MainScreen() {
             SettingsDialog(
                 currentIp = cameraIp,
                 currentPassword = cameraPassword,
+                currentTheme = currentTheme,
+                onThemeChange = onThemeChange,
                 onSave = { newIp, newPassword ->
                     cameraIp = newIp
                     cameraPassword = newPassword
@@ -213,12 +250,15 @@ fun ConnectionContent(
     ) {
         when (status) {
             ConnectionStatus.SEARCHING -> {
-                CircularProgressIndicator(modifier = Modifier.padding(bottom = 16.dp))
+                CircularProgressIndicator(
+                    modifier = Modifier.padding(bottom = 16.dp),
+                    color = MaterialTheme.colorScheme.primary
+                )
                 Text(
                     text = statusMessage,
                     style = MaterialTheme.typography.bodyLarge,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(bottom = 32.dp)
+                    modifier = Modifier.padding(bottom = 32.dp),
+                    color = MaterialTheme.colorScheme.onBackground
                 )
             }
             ConnectionStatus.ERROR -> {
@@ -249,8 +289,8 @@ fun ConnectionContent(
                 Text(
                     text = statusMessage,
                     style = MaterialTheme.typography.headlineSmall,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(bottom = 32.dp)
+                    modifier = Modifier.padding(bottom = 32.dp),
+                    color = MaterialTheme.colorScheme.onBackground
                 )
             }
         }
@@ -259,7 +299,8 @@ fun ConnectionContent(
             Text(
                 text = "IP : $cameraIp",
                 style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.padding(bottom = 32.dp)
+                modifier = Modifier.padding(bottom = 32.dp),
+                color = MaterialTheme.colorScheme.onBackground
             )
         }
         
@@ -267,8 +308,8 @@ fun ConnectionContent(
             onClick = onConnectClick,
             modifier = Modifier.fillMaxWidth(0.8f),
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFFE53935),
-                contentColor = Color.White
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
             )
         ) {
             Text(
@@ -288,6 +329,9 @@ fun ControlScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var isRecording by remember { mutableStateOf(false) }
+    var isLoadingOptions by remember { mutableStateOf(false) }
+    var cameraOptions by remember { mutableStateOf<Map<String, String>?>(null) }
+    val errorPrefix = stringResource(R.string.toast_error_prefix)
 
     Column(
         modifier = modifier
@@ -299,12 +343,13 @@ fun ControlScreen(
         Text(
             text = stringResource(R.string.camera_connected_title),
             style = MaterialTheme.typography.headlineMedium,
-            color = Color(0xFF4CAF50)
+            color = if (MaterialTheme.colorScheme.onBackground == Color.Black) Color(0xFF4CAF50) else Color.White
         )
         
         Text(
             text = "IP : $cameraIp",
-            style = MaterialTheme.typography.bodyMedium
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onBackground
         )
 
         Spacer(modifier = Modifier.height(32.dp))
@@ -316,12 +361,16 @@ fun ControlScreen(
                     takePhoto(cameraIp).onSuccess {
                         Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
                     }.onFailure {
-                        Toast.makeText(context, context.getString(R.string.toast_error_prefix, it.message), Toast.LENGTH_LONG).show()
+                        Toast.makeText(context, "$errorPrefix ${it.message}", Toast.LENGTH_LONG).show()
                     }
                 }
             },
             modifier = Modifier.fillMaxWidth().height(64.dp),
-            shape = MaterialTheme.shapes.large
+            shape = MaterialTheme.shapes.large,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            )
         ) {
             Icon(Icons.Default.CameraAlt, contentDescription = null)
             Spacer(Modifier.width(12.dp))
@@ -337,14 +386,14 @@ fun ControlScreen(
                             isRecording = false
                             Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
                         }.onFailure {
-                            Toast.makeText(context, context.getString(R.string.toast_error_prefix, it.message), Toast.LENGTH_LONG).show()
+                            Toast.makeText(context, "$errorPrefix ${it.message}", Toast.LENGTH_LONG).show()
                         }
                     } else {
                         startVideo(cameraIp).onSuccess {
                             isRecording = true
                             Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
                         }.onFailure {
-                            Toast.makeText(context, context.getString(R.string.toast_error_prefix, it.message), Toast.LENGTH_LONG).show()
+                            Toast.makeText(context, "$errorPrefix ${it.message}", Toast.LENGTH_LONG).show()
                         }
                     }
                 }
@@ -352,7 +401,8 @@ fun ControlScreen(
             modifier = Modifier.fillMaxWidth().height(64.dp),
             shape = MaterialTheme.shapes.large,
             colors = ButtonDefaults.buttonColors(
-                containerColor = if (isRecording) Color.Red else MaterialTheme.colorScheme.primary
+                containerColor = if (isRecording) Color.Red else MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
             )
         ) {
             Icon(
@@ -367,13 +417,78 @@ fun ControlScreen(
                 style = MaterialTheme.typography.titleLarge
             )
         }
+
+        // Bouton Options Caméra
+        Button(
+            onClick = {
+                scope.launch {
+                    isLoadingOptions = true
+                    getCameraOptions(cameraIp).onSuccess { options ->
+                        cameraOptions = options
+                    }.onFailure {
+                        Toast.makeText(context, "$errorPrefix ${it.message}", Toast.LENGTH_LONG).show()
+                    }
+                    isLoadingOptions = false
+                }
+            },
+            modifier = Modifier.fillMaxWidth().height(64.dp),
+            shape = MaterialTheme.shapes.large,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            )
+        ) {
+            if (isLoadingOptions) {
+                CircularProgressIndicator(color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(24.dp))
+            } else {
+                Icon(Icons.AutoMirrored.Filled.List, contentDescription = null)
+                Spacer(Modifier.width(12.dp))
+                Text(stringResource(R.string.btn_camera_settings), style = MaterialTheme.typography.titleLarge)
+            }
+        }
     }
+
+    if (cameraOptions != null) {
+        CameraOptionsDialog(
+            options = cameraOptions!!,
+            onDismiss = { cameraOptions = null }
+        )
+    }
+}
+
+@Composable
+fun CameraOptionsDialog(
+    options: Map<String, String>,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.camera_settings_dialog_title)) },
+        text = {
+            LazyColumn(modifier = Modifier.height(400.dp)) {
+                items(options.toList()) { (key, value) ->
+                    Column(modifier = Modifier.padding(vertical = 8.dp)) {
+                        Text(text = key, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = MaterialTheme.colorScheme.primary)
+                        Text(text = value, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface)
+                        HorizontalDivider(modifier = Modifier.padding(top = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.btn_close))
+            }
+        }
+    )
 }
 
 @Composable
 fun SettingsDialog(
     currentIp: String,
     currentPassword: String,
+    currentTheme: AppTheme,
+    onThemeChange: (AppTheme) -> Unit,
     onSave: (String, String) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -383,10 +498,32 @@ fun SettingsDialog(
     
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.settings_title)) },
+        title = { Text(stringResource(R.string.settings_title), color = MaterialTheme.colorScheme.onSurface) },
+        containerColor = MaterialTheme.colorScheme.surface,
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(stringResource(R.string.settings_network_label), style = MaterialTheme.typography.labelLarge)
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                
+                // Section Thème
+                Column {
+                    Text("Apparence", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurface)
+                    Spacer(Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        ThemeColorSelector(Color.White, "Blanc", currentTheme == AppTheme.WHITE) {
+                            onThemeChange(AppTheme.WHITE)
+                        }
+                        ThemeColorSelector(Color.Black, "Noir", currentTheme == AppTheme.BLACK) {
+                            onThemeChange(AppTheme.BLACK)
+                        }
+                        ThemeColorSelector(Color(0xFFCDDC39), "Vert", currentTheme == AppTheme.GREEN) {
+                            onThemeChange(AppTheme.GREEN)
+                        }
+                    }
+                }
+
+                Text(stringResource(R.string.settings_network_label), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurface)
 
                 OutlinedTextField(
                     value = tempPassword,
@@ -400,12 +537,8 @@ fun SettingsDialog(
                             Icons.Filled.Visibility
                         else Icons.Filled.VisibilityOff
 
-                        val description = if (passwordVisible) 
-                            stringResource(R.string.settings_pwd_hide) 
-                        else stringResource(R.string.settings_pwd_show)
-
                         IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                            Icon(imageVector = image, contentDescription = description)
+                            Icon(imageVector = image, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 )
@@ -423,29 +556,78 @@ fun SettingsDialog(
                         tempIp = DEFAULT_IP
                         tempPassword = DEFAULT_PASSWORD
                     },
-                    modifier = Modifier.align(Alignment.End)
+                    modifier = Modifier.align(Alignment.End),
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary)
                 ) {
                     Text(stringResource(R.string.btn_reset_settings))
                 }
             }
         },
         confirmButton = {
-            Button(onClick = { onSave(tempIp, tempPassword) }) {
+            Button(
+                onClick = { onSave(tempIp, tempPassword) },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                )
+            ) {
                 Text(stringResource(R.string.btn_save))
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(
+                onClick = onDismiss,
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurfaceVariant)
+            ) {
                 Text(stringResource(R.string.btn_cancel))
             }
         }
     )
 }
 
+@Composable
+fun ThemeColorSelector(
+    color: Color,
+    label: String,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.clickable { onClick() }
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(color)
+                .then(
+                    if (isSelected) Modifier.background(color).padding(2.dp).clip(CircleShape).background(Color.Gray.copy(alpha = 0.5f))
+                    else Modifier
+                )
+        ) {
+            if (isSelected) {
+                 Box(Modifier.fillMaxSize().padding(4.dp).clip(CircleShape).background(color))
+            }
+        }
+        Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
+    }
+}
+
 @Preview(showBackground = true)
 @Composable
 fun MainScreenPreview() {
-    MaterialTheme {
-        MainScreen()
+    YiPilotTheme(appTheme = AppTheme.WHITE) {
+        MainScreen(currentTheme = AppTheme.WHITE, onThemeChange = {})
+    }
+}
+
+@Preview(showBackground = true, name = "Écran de Contrôle (Connecté)")
+@Composable
+fun ControlScreenPreview() {
+    YiPilotTheme(appTheme = AppTheme.GREEN) {
+        Surface(color = MaterialTheme.colorScheme.background) {
+            ControlScreen(cameraIp = "192.168.1.1")
+        }
     }
 }

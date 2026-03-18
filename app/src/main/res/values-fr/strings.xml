@@ -22,6 +22,9 @@
     <string name="btn_take_photo">Prendre une Photo</string>
     <string name="btn_start_video">Démarrer Vidéo</string>
     <string name="btn_stop_video">Arrêter Vidéo</string>
+    <string name="btn_camera_settings">Paramètres Caméra</string>
+    <string name="camera_settings_dialog_title">Paramètres de la Caméra</string>
+    <string name="btn_close">Fermer</string>
 
     <!-- Configuration -->
     <string name="settings_title">Configuration</string>
