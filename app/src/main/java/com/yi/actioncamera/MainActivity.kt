@@ -29,12 +29,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.VideoCall
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -86,18 +88,13 @@ class MainActivity : ComponentActivity() {
             }
 
             YiPilotTheme(appTheme = currentTheme) {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    MainScreen(
-                        currentTheme = currentTheme,
-                        onThemeChange = { newTheme -> 
-                            currentTheme = newTheme
-                            prefs.edit { putString("app_theme", newTheme.name) }
-                        }
-                    )
-                }
+                MainScreen(
+                    currentTheme = currentTheme,
+                    onThemeChange = { newTheme -> 
+                        currentTheme = newTheme
+                        prefs.edit { putString("app_theme", newTheme.name) }
+                    }
+                )
             }
         }
     }
@@ -107,7 +104,8 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainScreen(
     currentTheme: AppTheme,
-    onThemeChange: (AppTheme) -> Unit
+    onThemeChange: (AppTheme) -> Unit,
+    initialStatus: ConnectionStatus = ConnectionStatus.IDLE
 ) {
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("camera_prefs", Context.MODE_PRIVATE) }
@@ -119,7 +117,7 @@ fun MainScreen(
     var cameraPassword by remember {
         mutableStateOf(prefs.getString("camera_password", DEFAULT_PASSWORD) ?: DEFAULT_PASSWORD)
     }
-    var status by remember { mutableStateOf(ConnectionStatus.IDLE) }
+    var status by remember { mutableStateOf(initialStatus) }
     val readyStatus = stringResource(R.string.status_ready)
     var statusMessage by remember(readyStatus) { mutableStateOf(readyStatus) }
 
@@ -149,7 +147,21 @@ fun MainScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.app_name)) },
+                title = { 
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Wifi,
+                            contentDescription = null,
+                            tint = if (status == ConnectionStatus.CONNECTED) Color(0xFF4CAF50) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            text = stringResource(R.string.app_name),
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                        )
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
                     titleContentColor = MaterialTheme.colorScheme.onSurface
@@ -164,52 +176,57 @@ fun MainScreen(
                             )
                         }
                     } else {
-                        TextButton(onClick = { 
+                        IconButton(onClick = { 
                             status = ConnectionStatus.IDLE 
                             statusMessage = readyStatus
                         }) {
-                            Text(stringResource(R.string.btn_disconnect), color = MaterialTheme.colorScheme.error)
+                            Icon(
+                                imageVector = Icons.Default.LinkOff,
+                                contentDescription = stringResource(R.string.btn_disconnect),
+                                tint = MaterialTheme.colorScheme.error
+                            )
                         }
                     }
                 }
             )
         }
     ) { innerPadding ->
-        if (status == ConnectionStatus.CONNECTED) {
-            ControlScreen(
-                cameraIp = cameraIp,
-                modifier = Modifier.padding(innerPadding)
-            )
-        } else {
-            ConnectionContent(
-                status = status,
-                statusMessage = statusMessage,
-                cameraIp = cameraIp,
-                onConnectClick = {
-                    val permissionsNeeded = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        arrayOf(Manifest.permission.NEARBY_WIFI_DEVICES)
-                    } else {
-                        arrayOf(
-                            Manifest.permission.ACCESS_FINE_LOCATION,
-                            Manifest.permission.ACCESS_COARSE_LOCATION
-                        )
-                    }
-
-                    val allGranted = permissionsNeeded.all {
-                        ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
-                    }
-
-                    if (allGranted) {
-                        connectToCameraWifi(context, cameraPassword) { newStatus, msg -> 
-                            status = newStatus
-                            statusMessage = msg 
+        Surface(
+            modifier = Modifier.fillMaxSize().padding(innerPadding),
+            color = MaterialTheme.colorScheme.background
+        ) {
+            if (status == ConnectionStatus.CONNECTED) {
+                ControlScreen(cameraIp = cameraIp)
+            } else {
+                ConnectionContent(
+                    status = status,
+                    statusMessage = statusMessage,
+                    cameraIp = cameraIp,
+                    onConnectClick = {
+                        val permissionsNeeded = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            arrayOf(Manifest.permission.NEARBY_WIFI_DEVICES)
+                        } else {
+                            arrayOf(
+                                Manifest.permission.ACCESS_FINE_LOCATION,
+                                Manifest.permission.ACCESS_COARSE_LOCATION
+                            )
                         }
-                    } else {
-                        permissionLauncher.launch(permissionsNeeded)
+
+                        val allGranted = permissionsNeeded.all {
+                            ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
+                        }
+
+                        if (allGranted) {
+                            connectToCameraWifi(context, cameraPassword) { newStatus, msg -> 
+                                status = newStatus
+                                statusMessage = msg 
+                            }
+                        } else {
+                            permissionLauncher.launch(permissionsNeeded)
+                        }
                     }
-                },
-                modifier = Modifier.padding(innerPadding)
-            )
+                )
+            }
         }
 
         if (showSettings) {
@@ -295,15 +312,6 @@ fun ConnectionContent(
             }
         }
 
-        if (status != ConnectionStatus.ERROR) {
-            Text(
-                text = "IP : $cameraIp",
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.padding(bottom = 32.dp),
-                color = MaterialTheme.colorScheme.onBackground
-            )
-        }
-        
         Button(
             onClick = onConnectClick,
             modifier = Modifier.fillMaxWidth(0.8f),
@@ -343,7 +351,7 @@ fun ControlScreen(
         Text(
             text = stringResource(R.string.camera_connected_title),
             style = MaterialTheme.typography.headlineMedium,
-            color = if (MaterialTheme.colorScheme.onBackground == Color.Black) Color(0xFF4CAF50) else Color.White
+            color = MaterialTheme.colorScheme.onBackground
         )
         
         Text(
@@ -365,7 +373,7 @@ fun ControlScreen(
                     }
                 }
             },
-            modifier = Modifier.fillMaxWidth().height(64.dp),
+            modifier = Modifier.fillMaxWidth(0.6f).height(64.dp),
             shape = MaterialTheme.shapes.large,
             colors = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.primary,
@@ -398,7 +406,7 @@ fun ControlScreen(
                     }
                 }
             },
-            modifier = Modifier.fillMaxWidth().height(64.dp),
+            modifier = Modifier.fillMaxWidth(0.6f).height(64.dp),
             shape = MaterialTheme.shapes.large,
             colors = ButtonDefaults.buttonColors(
                 containerColor = if (isRecording) Color.Red else MaterialTheme.colorScheme.primary,
@@ -431,7 +439,7 @@ fun ControlScreen(
                     isLoadingOptions = false
                 }
             },
-            modifier = Modifier.fillMaxWidth().height(64.dp),
+            modifier = Modifier.fillMaxWidth(0.6f).height(64.dp),
             shape = MaterialTheme.shapes.large,
             colors = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.primary,
@@ -557,7 +565,10 @@ fun SettingsDialog(
                         tempPassword = DEFAULT_PASSWORD
                     },
                     modifier = Modifier.align(Alignment.End),
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary)
+                    colors = ButtonDefaults.buttonColors(
+                        contentColor = MaterialTheme.colorScheme.primary,
+                        containerColor = Color.Transparent
+                    )
                 ) {
                     Text(stringResource(R.string.btn_reset_settings))
                 }
@@ -614,20 +625,158 @@ fun ThemeColorSelector(
     }
 }
 
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// WHITE PREVIEW
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
 @Preview(showBackground = true)
 @Composable
-fun MainScreenPreview() {
+fun WhiteMainScreenPreview() {
     YiPilotTheme(appTheme = AppTheme.WHITE) {
         MainScreen(currentTheme = AppTheme.WHITE, onThemeChange = {})
     }
 }
 
-@Preview(showBackground = true, name = "Écran de Contrôle (Connecté)")
+@Preview(showBackground = true)
 @Composable
-fun ControlScreenPreview() {
+fun WhiteControlScreenPreview() {
+    YiPilotTheme(appTheme = AppTheme.WHITE) {
+        MainScreen(currentTheme = AppTheme.WHITE, onThemeChange = {}, initialStatus = ConnectionStatus.CONNECTED)
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun WhiteSettingsDialogPreview() {
+    YiPilotTheme(appTheme = AppTheme.WHITE) {
+        Box(Modifier.fillMaxSize()) {
+            SettingsDialog(
+                currentIp = "192.168.42.1",
+                currentPassword = "********",
+                currentTheme = AppTheme.WHITE,
+                onThemeChange = {},
+                onSave = { _, _ -> },
+                onDismiss = {}
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun WhiteCameraOptionsDialogPreview() {
+    val options = mapOf(
+        "video_resolution" to "1920x1080 60P 16:9",
+        "photo_size" to "16M (4608x3456) 4:3",
+        "field_of_view" to "Wide"
+    )
+    YiPilotTheme(appTheme = AppTheme.WHITE) {
+        Box(Modifier.fillMaxSize()) {
+            CameraOptionsDialog(options = options, onDismiss = {})
+        }
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// BLACK PREVIEW
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+@Preview(showBackground = true)
+@Composable
+fun BlackMainScreenPreview() {
+    YiPilotTheme(appTheme = AppTheme.BLACK) {
+        MainScreen(currentTheme = AppTheme.BLACK, onThemeChange = {})
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun BlackControlScreenPreview() {
+    YiPilotTheme(appTheme = AppTheme.BLACK) {
+        MainScreen(currentTheme = AppTheme.BLACK, onThemeChange = {}, initialStatus = ConnectionStatus.CONNECTED)
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun BlackSettingsDialogPreview() {
+    YiPilotTheme(appTheme = AppTheme.BLACK) {
+        Box(Modifier.fillMaxSize()) {
+            SettingsDialog(
+                currentIp = "192.168.42.1",
+                currentPassword = "********",
+                currentTheme = AppTheme.BLACK,
+                onThemeChange = {},
+                onSave = { _, _ -> },
+                onDismiss = {}
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun BlackCameraOptionsDialogPreview() {
+    val options = mapOf(
+        "video_resolution" to "1920x1080 60P 16:9",
+        "photo_size" to "16M (4608x3456) 4:3",
+        "field_of_view" to "Wide"
+    )
+    YiPilotTheme(appTheme = AppTheme.BLACK) {
+        Box(Modifier.fillMaxSize()) {
+            CameraOptionsDialog(options = options, onDismiss = {})
+        }
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// GREEN PREVIEW
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+@Preview(showBackground = true)
+@Composable
+fun GreenMainScreenPreview() {
     YiPilotTheme(appTheme = AppTheme.GREEN) {
-        Surface(color = MaterialTheme.colorScheme.background) {
-            ControlScreen(cameraIp = "192.168.1.1")
+        MainScreen(currentTheme = AppTheme.GREEN, onThemeChange = {})
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun GreenControlScreenPreview() {
+    YiPilotTheme(appTheme = AppTheme.GREEN) {
+        MainScreen(currentTheme = AppTheme.GREEN, onThemeChange = {}, initialStatus = ConnectionStatus.CONNECTED)
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun GreenSettingsDialogPreview() {
+    YiPilotTheme(appTheme = AppTheme.GREEN) {
+        Box(Modifier.fillMaxSize()) {
+            SettingsDialog(
+                currentIp = "192.168.42.1",
+                currentPassword = "********",
+                currentTheme = AppTheme.GREEN,
+                onThemeChange = {},
+                onSave = { _, _ -> },
+                onDismiss = {}
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun GreenCameraOptionsDialogPreview() {
+    val options = mapOf(
+        "video_resolution" to "1920x1080 60P 16:9",
+        "photo_size" to "16M (4608x3456) 4:3",
+        "field_of_view" to "Wide"
+    )
+    YiPilotTheme(appTheme = AppTheme.GREEN) {
+        Box(Modifier.fillMaxSize()) {
+            CameraOptionsDialog(options = options, onDismiss = {})
         }
     }
 }
