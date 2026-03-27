@@ -149,6 +149,7 @@ fun MainScreen(
             TopAppBar(
                 title = { 
                     Row(verticalAlignment = Alignment.CenterVertically) {
+                        // TO DO mettre l'icone de l'app
                         Icon(
                             imageVector = Icons.Default.Wifi,
                             contentDescription = null,
