@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">YIPilot</string>
+
+    <!-- Connection Screen -->
+    <string name="status_ready">Ready to connect</string>
+    <string name="status_searching">Opening Wi-Fi selection…</string>
+    <string name="status_connected">Connected to camera!</string>
+    <string name="status_lost">Connection lost</string>
+    <string name="status_error_security">Security error: missing permissions.</string>
+    <string name="status_error_not_found">Camera not found. Check if camera Wi-Fi is on and you are nearby.</string>
+    <string name="status_manual_connect">Please connect manually (Android &lt; 10)</string>
+    <string name="old_android_toast">Android version too old for auto-connection</string>
+    <string name="permission_required_toast">Permissions required for Wi-Fi</string>
+
+    <string name="btn_connect">Connect to Wi-Fi</string>
+    <string name="btn_retry">Retry connection</string>
+    <string name="btn_disconnect">Disconnect</string>
+
+    <!-- Control Screen -->
+    <string name="camera_connected_title">Camera Connected</string>
+    <string name="btn_take_photo">Take Photo</string>
+    <string name="btn_start_video">Start Video</string>
+    <string name="btn_stop_video">Stop Video</string>
+    <string name="btn_camera_settings">Settings</string>
+    <string name="camera_settings_dialog_title">Settings</string>
+    <string name="btn_close">Close</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_network_label">Network settings</string>
+    <string name="settings_ip_hint">Camera IP address</string>
+    <string name="settings_pwd_hint">Wi-Fi password</string>
+    <string name="settings_pwd_show">Show password</string>
+    <string name="settings_pwd_hide">Hide password</string>
+    <string name="btn_reset_settings">Reset settings</string>
+    <string name="btn_save">Save</string>
+    <string name="btn_cancel">Cancel</string>
+
+    <!-- Actions Toasts -->
+    <string name="toast_error_prefix">Error: %1$s</string>
+</resources>

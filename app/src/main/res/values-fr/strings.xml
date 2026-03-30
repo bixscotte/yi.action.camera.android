@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">YIPilot</string>
+
+    <!-- Écran de Connexion -->
+    <string name="status_ready">Prêt pour la connexion</string>
+    <string name="status_searching">Ouverture de la sélection Wi-Fi…</string>
+    <string name="status_connected">Connecté à la caméra !</string>
+    <string name="status_lost">Connexion perdue</string>
+    <string name="status_error_security">Erreur de sécurité : permissions manquantes.</string>
+    <string name="status_error_not_found">Caméra introuvable. Vérifiez que le Wi-Fi de la caméra est activé (bouton Wi-Fi sur le côté) et que vous êtes à proximité.</string>
+    <string name="status_manual_connect">Veuillez vous connecter manuellement (Android &lt; 10)</string>
+    <string name="old_android_toast">Version d\'Android trop ancienne pour la connexion auto</string>
+    <string name="permission_required_toast">Permissions nécessaires pour le Wi-Fi</string>
+
+    <string name="btn_connect">Se connecter au Wi-Fi</string>
+    <string name="btn_retry">Réessayer la connexion</string>
+    <string name="btn_disconnect">Déconnecter</string>
+
+    <!-- Écran de Contrôle -->
+    <string name="camera_connected_title">Caméra Connectée</string>
+    <string name="btn_take_photo">Prendre une Photo</string>
+    <string name="btn_start_video">Démarrer Vidéo</string>
+    <string name="btn_stop_video">Arrêter Vidéo</string>
+    <string name="btn_camera_settings">Paramètres Caméra</string>
+    <string name="camera_settings_dialog_title">Paramètres de la Caméra</string>
+    <string name="btn_close">Fermer</string>
+
+    <!-- Configuration -->
+    <string name="settings_title">Configuration</string>
+    <string name="settings_network_label">Paramètres réseau</string>
+    <string name="settings_ip_hint">Adresse IP de la caméra</string>
+    <string name="settings_pwd_hint">Mot de passe Wi-Fi</string>
+    <string name="settings_pwd_show">Afficher le mot de passe</string>
+    <string name="settings_pwd_hide">Cacher le mot de passe</string>
+    <string name="btn_reset_settings">Réinitialiser les paramètres</string>
+    <string name="btn_save">Enregistrer</string>
+    <string name="btn_cancel">Annuler</string>
+
+    <!-- Toasts Actions -->
+    <string name="toast_error_prefix">Erreur : %1$s</string>
+</resources>
